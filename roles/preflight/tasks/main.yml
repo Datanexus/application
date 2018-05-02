@@ -4,16 +4,16 @@
 ---
 # in a dual interface system, eth1 is always public internal
 # azure is pre-configured so we only need to do this for AWS & OSP
-- name: APPLICATION PREFLIGHT OVERLAY | setting internal private and public interfaces
+- name: GENERIC PREFLIGHT OVERLAY | setting internal private and public interfaces
   set_fact:
     public_internal_interface: "{{ (internal_subnet is defined) | ternary('eth1','eth0') }}"
 
 - block:
-  - name: APPLICATION PREFLIGHT OVERLAY | configuring no default route on eth0 for {{ application }}
+  - name: GENERIC PREFLIGHT OVERLAY | configuring no default route on eth0 for {{ application }}
     become: true
     lineinfile: name="/etc/sysconfig/network-scripts/ifcfg-eth0" regexp='^DEFROUTE=' line='DEFROUTE=no'
     
-  - name: APPLICATION PREFLIGHT OVERLAY | creating ifcfg-{{ public_internal_interface }}
+  - name: GENERIC PREFLIGHT OVERLAY | creating ifcfg-{{ public_internal_interface }}
     become: true
     blockinfile:
       path: "/etc/sysconfig/network-scripts/ifcfg-{{ public_internal_interface }}"
@@ -26,7 +26,7 @@
         TYPE=Ethernet
         USERCTL=no
         
-  - name: APPLICATION PREFLIGHT OVERLAY | restart networking
+  - name: GENERIC PREFLIGHT OVERLAY | restart networking
     become: true
     systemd: "name=network state=restarted"
     
@@ -42,11 +42,11 @@
       block_device: "{{ (cloud == 'aws') | ternary('/dev/xvdb', '/dev/vdb') }}"
   
   # the ansible filesystem module was succeeding without errors, but the resulting filesystem was unmountable
-  - name: APPLICATION PREFLIGHT OVERLAY | making filesystem on {{ block_device }}
+  - name: GENERIC PREFLIGHT OVERLAY | making filesystem on {{ block_device }}
     command: "/usr/sbin/mkfs -t ext4 {{ block_device }}"
     when: block_device is defined
     
-  - name: APPLICATION PREFLIGHT OVERLAY | mounting data volumes
+  - name: GENERIC PREFLIGHT OVERLAY | mounting data volumes
     mount:
       name: "{{ mountpoint }}"
       src: "{{ block_device }}"
@@ -59,30 +59,30 @@
   
 - block:
   
-  - name: APPLICATION PREFLIGHT OVERLAY | discovering new block device
+  - name: GENERIC PREFLIGHT OVERLAY | discovering new block device
     shell: "/bin/dmesg | /bin/grep SCSI | /bin/tail -1 | /bin/awk '{ print $5 }' | /bin/cut -d[ -f2 | /bin/cut -d] -f1"
     register: found_block_device
     
   - set_fact:
       block_device: "/dev/{{ found_block_device.stdout }}"
       
-  - name: APPLICATION PREFLIGHT OVERLAY | setting disk to a full partition
+  - name: GENERIC PREFLIGHT OVERLAY | setting disk to a full partition
     set_fact:
       data_filesystem: "{{ block_device }}1"
     when: block_device is defined
     
-  - name: APPLICATION PREFLIGHT OVERLAY | partitioning data disk into single partition
+  - name: GENERIC PREFLIGHT OVERLAY | partitioning data disk into single partition
     parted:
       device: "{{ block_device }}"
       number: 1
       state: present
   
   # the ansible filesystem module was succeeding without errors, but the resulting filesystem was unmountable
-  - name: APPLICATION PREFLIGHT OVERLAY | making filesystem on {{ data_filesystem }}
+  - name: GENERIC PREFLIGHT OVERLAY | making filesystem on {{ data_filesystem }}
     command: "/usr/sbin/mkfs -t ext4 {{ data_filesystem }}"
     when: data_filesystem is defined
     
-  - name: APPLICATION PREFLIGHT OVERLAY | mounting Azure data volume {{ data_filesystem }} to {{ mountpoint }}
+  - name: GENERIC PREFLIGHT OVERLAY | mounting Azure data volume {{ data_filesystem }} to {{ mountpoint }}
     mount:
       path: "{{ mountpoint }}"
       src: "{{ data_filesystem }}"
@@ -91,11 +91,11 @@
   when: cloud == 'azure' and data_volume is defined
   become: true
   
-- name: APPLICATION PREFLIGHT OVERLAY | ensure sshd_config is writable
+- name: GENERIC PREFLIGHT OVERLAY | ensure sshd_config is writable
   command: /bin/chattr -i /etc/ssh/sshd_config
   become: true
   
-- name: APPLICATION PREFLIGHT OVERLAY | ensuring sshd listens on provisioning network
+- name: GENERIC PREFLIGHT OVERLAY | ensuring sshd listens on provisioning network
   lineinfile:
     dest: /etc/ssh/sshd_config
     regexp: "^#ListenAddress 0.0.0.0"
@@ -103,40 +103,40 @@
     line: "ListenAddress {{ hostvars[inventory_hostname].ansible_default_ipv4.address }}"
   become: true
 
-- name: APPLICATION PREFLIGHT OVERLAY | restarting sshd
+- name: GENERIC PREFLIGHT OVERLAY | restarting sshd
   service:
      name: sshd
      state: restarted
   become: true
 
-- name: APPLICATION PREFLIGHT OVERLAY | generating UUID
+- name: GENERIC PREFLIGHT OVERLAY | generating UUID
   shell: /usr/bin/uuidgen | /usr/bin/tr -d \-
   register: uuid
   become: true
 
 # the lineinfile plays aren't intended to be idempotent
 - block:
-  - name: APPLICATION PREFLIGHT OVERLAY | setting hostname actively so rebooting is unnecessary
+  - name: GENERIC PREFLIGHT OVERLAY | setting hostname actively so rebooting is unnecessary
     command: /usr/bin/hostnamectl set-hostname {{ application }}-{{ uuid.stdout }}
 
-  - name: APPLICATION PREFLIGHT OVERLAY | setting pretty hostname actively so rebooting is unnecessary
+  - name: GENERIC PREFLIGHT OVERLAY | setting pretty hostname actively so rebooting is unnecessary
     command: /usr/bin/hostnamectl --pretty set-hostname "{{ tenant }} {{ application }}"  
 
-  - name: APPLICATION PREFLIGHT OVERLAY | setting hostname in /etc/hostname
+  - name: GENERIC PREFLIGHT OVERLAY | setting hostname in /etc/hostname
     replace:
       path: /etc/hostname
       regexp: "{{ hostvars[inventory_hostname].ansible_hostname }}.ec2.internal"
       replace: "{{ application }}-{{ uuid.stdout }}.localdomain"
     when: cloud == 'aws'
     
-  - name: APPLICATION PREFLIGHT OVERLAY | setting {{ application }}-{{ uuid.stdout }}.localdomain in /etc/sysconfig/network
+  - name: GENERIC PREFLIGHT OVERLAY | setting {{ application }}-{{ uuid.stdout }}.localdomain in /etc/sysconfig/network
     lineinfile:
       dest: /etc/sysconfig/network
       state: present
       insertafter: EOF
       line: "HOSTNAME={{ application }}-{{ uuid.stdout }}.localdomain"
 
-  - name: APPLICATION PREFLIGHT OVERLAY | setting {{ hostvars[inventory_hostname].ansible_eth0.ipv4.address }} to {{ application }}-{{ uuid.stdout }}.localdomain in /etc/hosts
+  - name: GENERIC PREFLIGHT OVERLAY | setting {{ hostvars[inventory_hostname].ansible_eth0.ipv4.address }} to {{ application }}-{{ uuid.stdout }}.localdomain in /etc/hosts
     lineinfile:
       dest: /etc/hosts
       insertafter: EOF
@@ -145,7 +145,7 @@
       # line: "127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4 {{ hostvars[inventory_hostname].ansible_hostname }}"
       line: "{{ hostvars[inventory_hostname].ansible_eth0.ipv4.address }}    {{ application }}-{{ uuid.stdout }}.localdomain {{ application }}-{{ uuid.stdout }} {{ application }}"
 
-  - name: APPLICATION PREFLIGHT OVERLAY | ensuring hostname changes persist after reboot
+  - name: GENERIC PREFLIGHT OVERLAY | ensuring hostname changes persist after reboot
     lineinfile:
       dest: /etc/cloud/cloud.cfg
       state: present
@@ -156,7 +156,7 @@
   when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat'
 
 # community CentOS AMI ships with postfix enabled so we need to disable it
-- name: APPLICATION PREFLIGHT OVERLAY | stopping postfix
+- name: GENERIC PREFLIGHT OVERLAY | stopping postfix
   service:
     name: postfix
     state: stopped
@@ -164,7 +164,7 @@
   when: ansible_distribution == 'CentOS' or ansible_distribution == 'RedHat'  
   
 # annnnd remove it
-- name: APPLICATION PREFLIGHT OVERLAY | removing postfix
+- name: GENERIC PREFLIGHT OVERLAY | removing postfix
   package:
     name: postfix
     state: absent

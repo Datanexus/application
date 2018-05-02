@@ -3,7 +3,7 @@
 # Launch an Azure AMI
 # 
 ---
-- name: APPLICATION OVERLAY | creating ssh security group
+- name: GENERIC OVERLAY | creating ssh security group
   azure_rm_securitygroup:
     resource_group: "{{ specified_resourcegroup.name }}"
     name: "dnsg_{{ project }}_ssh_private_internal"
@@ -27,7 +27,7 @@
         source_address_prefix: "{{ internal_private_subnet_result.properties.addressPrefix }}"
   register: sg_ssh_private
 
-- name: APPLICATION OVERLAY | creating closed security group
+- name: GENERIC OVERLAY | creating closed security group
   azure_rm_securitygroup:
     resource_group: "{{ specified_resourcegroup.name }}"
     name: "dnsg_{{ project }}_{{ application }}_public_internal"
@@ -44,17 +44,17 @@
         direction: Inbound
   register: sg_closed
 
-- name: APPLICATION OVERLAY | setting key path to {{ key_path }}
+- name: GENERIC OVERLAY | setting key path to {{ key_path }}
   set_fact: key_path="{{ ansible_env.PWD }}"
   when: key_path is not defined
 
-- name: APPLICATION OVERLAY | checking {{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem
+- name: GENERIC OVERLAY | checking {{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem
   stat: path="{{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem"
   register: existing_key
 
 # create new SSH key - azure supports 2048bit+ RSA 
 - block:    
-  - name: APPLICATION OVERLAY | creating {{ cloud }}-{{ region }}-{{ project }}-{{ application }}
+  - name: GENERIC OVERLAY | creating {{ cloud }}-{{ region }}-{{ project }}-{{ application }}
     command: "/usr/bin/ssh-keygen -b 2048 -t rsa -f {{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem -N ''"
     register: new_azure_keypair
 
@@ -68,7 +68,7 @@
     - not existing_key.stat.exists
   
 - block:
-  - name: APPLICATION OVERLAY | creating {{ application }} virtual {{ project }}_{{ application }}_internal NIC
+  - name: GENERIC OVERLAY | creating {{ application }} virtual {{ project }}_{{ application }}_internal NIC
     azure_rm_networkinterface:
       resource_group: "{{ specified_resourcegroup.name }}"
       name: "{{ project }}_{{ application }}_internal"    
@@ -88,7 +88,7 @@
         Cluster: "{{ cluster | default ('a') }}"
         Dataflow: "{{ dataflow | default ('none') }}"
 
-  - name: APPLICATION OVERLAY | creating {{ application }} virtual {{ project }}_{{ application }}_external NIC
+  - name: GENERIC OVERLAY | creating {{ application }} virtual {{ project }}_{{ application }}_external NIC
     azure_rm_networkinterface:
       resource_group: "{{ specified_resourcegroup.name }}"
       name: "{{ project }}_{{ application }}_external"
@@ -109,10 +109,10 @@
         Dataflow: "{{ dataflow | default ('none') }}"
   
   # this is not necessarily idempotent because we're shelling out
-  - name: APPLICATION OVERLAY | creating {{ application }} VM in {{ specified_resourcegroup.name }}
+  - name: GENERIC OVERLAY | creating {{ application }} VM in {{ specified_resourcegroup.name }}
     command: "az vm create --resource-group {{ specified_resourcegroup.name }} --name {{ project }}-{{ application }} --location {{ region }} --nics {{ project }}_{{ application }}_internal {{ project }}_{{ application }}_external --size {{ image | default('Standard_D8_v3') }} --os-disk-size-gb {{ root_volume }} --image Centos --admin-username {{ user }} --authentication-type ssh --ssh-key-value {{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem.pub --tags Name={{ project }}_{{ application }} Tenant={{ tenant }} Project={{ project }} Cloud={{ cloud }} Domain={{ domain }} Application={{ application }} Cluster={{ cluster | default ('a') }} Role={{ role | default ('none') }} Dataflow={{ dataflow | default ('none') }}"
 
-  - name: APPLICATION OVERLAY | creating {{ application }} data disk in {{ specified_resourcegroup.name }}
+  - name: GENERIC OVERLAY | creating {{ application }} data disk in {{ specified_resourcegroup.name }}
     azure_rm_managed_disk:
       name: "{{ project }}-{{ application }}-data"
       resource_group: "{{ specified_resourcegroup.name }}"
@@ -121,7 +121,7 @@
     when: data_volume is defined
         
 # multiple NICS fails using ansible
-# - name: APPLICATION OVERLAY | creating {{ application }} VM in {{ specified_resourcegroup.name }}
+# - name: GENERIC OVERLAY | creating {{ application }} VM in {{ specified_resourcegroup.name }}
 #   azure_rm_virtualmachine:
 #     resource_group: "{{ specified_resourcegroup.name }}"
 #     name: "{{ project }}-{{ application }}"

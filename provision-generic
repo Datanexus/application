@@ -3,13 +3,13 @@
 #
 # main routine for provisioning generic application server
 ---
-- name: APPLICATION OVERLAY | discovering {{ cloud }} networking
+- name: GENERIC OVERLAY | discovering {{ cloud }} networking
   tags:
-    - application
+    - generic
     - vm
   hosts: localhost
   vars_files:
-    - vars/application.yml
+    - vars/generic.yml
   gather_facts: no
   tasks:
     - include_vars: "{{ configuration }}"
@@ -25,9 +25,9 @@
         tasks_from: discover-resourcegroup
       when: cloud == 'azure'
 
-- name: APPLICATION OVERLAY | creating {{ cloud }} security groups
+- name: GENERIC OVERLAY | creating {{ cloud }} security groups
   tags:
-    - application
+    - generic
     - vm
   hosts: localhost
   gather_facts: no
@@ -40,10 +40,10 @@
         tasks_from: create-securitygroup
       when: cloud == 'aws'
 
-- name: APPLICATION OVERLAY | launching VM
+- name: GENERIC OVERLAY | launching VM
   tags: vm
   vars_files:
-    - vars/application.yml
+    - vars/generic.yml
   hosts: localhost
   connection: local
   gather_facts: yes
@@ -64,12 +64,12 @@
         tasks_from: launch-vm
       when: cloud == 'azure'
 
-- name: APPLICATION OVERLAY | applying {{ cloud }} security groups
+- name: GENERIC OVERLAY | applying {{ cloud }} security groups
   tags:
-    - application
+    - generic
   hosts: localhost
   vars_files:
-    - vars/application.yml
+    - vars/generic.yml
   gather_facts: no
   tasks:
     - include_vars: "{{ configuration }}"
@@ -82,13 +82,13 @@
     
     # azure security groups are applied on instance boot
       
-- name: APPLICATION OVERLAY | gathering {{ cloud }} inventory
+- name: GENERIC OVERLAY | gathering {{ cloud }} inventory
   tags:
-    - application
+    - generic
     - vm
   hosts: localhost
   vars_files:
-    - vars/application.yml
+    - vars/generic.yml
   gather_facts: no
   tasks:
     - include_vars: "{{ configuration }}"
@@ -105,11 +105,11 @@
       when: cloud == 'azure'
     
 # this is a separate step because ansible needs to gather facts on a fully configured base system
-- name: APPLICATION OVERLAY | completing OS configuration
-  hosts: application
+- name: GENERIC OVERLAY | completing OS configuration
+  hosts: generic
   tags: vm
   vars_files:
-    - vars/application.yml
+    - vars/generic.yml
   gather_facts: yes
   tasks:
     - include_vars: "{{ configuration }}"
@@ -124,18 +124,18 @@
         name: http-proxy
       when: http_proxy is defined
     
-- name: APPLICATION OVERLAY | installing base application application
+- name: GENERIC OVERLAY | installing base {{ application }} application overlay
   tags:
     - vm
-    - application
-  hosts: application
+    - generic
+  hosts: generic
   vars_files:
-    - vars/application.yml
+    - vars/generic.yml
   gather_facts: yes
   tasks:
     - include_vars: "{{ configuration }}"
       when: configuration is defined
     
     - include_role:
-        name: application
+        name: generic
  
