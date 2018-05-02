@@ -2,7 +2,7 @@
 #
 # apply Azure security group rules to existing vm
 ---
-# - name: POSTGRESQL OVERLAY AZURE | applying postgresql security group
+# - name: GENERIC OVERLAY AZURE | applying postgresql security group
 #   azure_rm_securitygroup:
 #     resource_group: "{{ specified_resourcegroup.name }}"
 #     name: "dnsg_{{ project }}_{{ application }}_public_internal"
