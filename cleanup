@@ -15,4 +15,4 @@ else
   export configuration="$1"
 fi
 
-./cleanup-application -e "configuration=$configuration"
+./cleanup-generic -e "configuration=$configuration"
