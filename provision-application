@@ -1,0 +1,141 @@
+#!/usr/bin/env ansible-playbook
+# (c) 2016 DataNexus Inc.  All Rights Reserved.
+#
+# main routine for provisioning generic application server
+---
+- name: APPLICATION OVERLAY | discovering {{ cloud }} networking
+  tags:
+    - application
+    - vm
+  hosts: localhost
+  vars_files:
+    - vars/application.yml
+  gather_facts: no
+  tasks:
+    - include_vars: "{{ configuration }}"
+      when: configuration is defined
+      
+    - include_role:
+        name: aws
+        tasks_from: discover-vpc
+      when: cloud == 'aws'
+    
+    - include_role:
+        name: azure
+        tasks_from: discover-resourcegroup
+      when: cloud == 'azure'
+
+- name: APPLICATION OVERLAY | creating {{ cloud }} security groups
+  tags:
+    - application
+    - vm
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - include_vars: "{{ configuration }}"
+      when: configuration is defined
+      
+    - include_role:
+        name: aws
+        tasks_from: create-securitygroup
+      when: cloud == 'aws'
+
+- name: APPLICATION OVERLAY | launching VM
+  tags: vm
+  vars_files:
+    - vars/application.yml
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+  tasks:
+    - include_vars: "{{ configuration }}"
+      when: configuration is defined
+      
+    - include_role:
+        name: aws
+        tasks_from: launch-vm
+      when: cloud == 'aws'
+    - include_role:
+        name: osp
+        tasks_from: launch-vm
+      when: cloud == 'osp'
+    - include_role:
+        name: azure
+        tasks_from: launch-vm
+      when: cloud == 'azure'
+
+- name: APPLICATION OVERLAY | applying {{ cloud }} security groups
+  tags:
+    - application
+  hosts: localhost
+  vars_files:
+    - vars/application.yml
+  gather_facts: no
+  tasks:
+    - include_vars: "{{ configuration }}"
+      when: configuration is defined
+      
+    - include_role:
+        name: aws
+        tasks_from: apply-securitygroup
+      when: cloud == 'aws'
+    
+    # azure security groups are applied on instance boot
+      
+- name: APPLICATION OVERLAY | gathering {{ cloud }} inventory
+  tags:
+    - application
+    - vm
+  hosts: localhost
+  vars_files:
+    - vars/application.yml
+  gather_facts: no
+  tasks:
+    - include_vars: "{{ configuration }}"
+      when: configuration is defined
+      
+    - include_role:
+        name: aws
+        tasks_from: discover-vm
+      when: cloud == 'aws'
+      
+    - include_role:
+        name: azure
+        tasks_from: discover-vm
+      when: cloud == 'azure'
+    
+# this is a separate step because ansible needs to gather facts on a fully configured base system
+- name: APPLICATION OVERLAY | completing OS configuration
+  hosts: application
+  tags: vm
+  vars_files:
+    - vars/application.yml
+  gather_facts: yes
+  tasks:
+    - include_vars: "{{ configuration }}"
+      when: configuration is defined
+    
+    - include_role:
+        name: preflight
+      vars:
+        mountpoint: "/data"
+    
+    - include_role:
+        name: http-proxy
+      when: http_proxy is defined
+    
+- name: APPLICATION OVERLAY | installing base application application
+  tags:
+    - vm
+    - application
+  hosts: application
+  vars_files:
+    - vars/application.yml
+  gather_facts: yes
+  tasks:
+    - include_vars: "{{ configuration }}"
+      when: configuration is defined
+    
+    - include_role:
+        name: application
+ 

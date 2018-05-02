@@ -1,0 +1,19 @@
+# (c) 2016 DataNexus Inc.  All Rights Reserved.
+#
+# example Azure instance
+---
+cloud: azure
+tenant: TENANT
+project: PROJECT
+domain: DOMAIN
+region: AZURE REGION
+zone: a
+cidr_block: CIDR_BLOCK
+internal_subnet: INTERNAL PRIVATE SUBNET CIDR BLOCK
+external_subnet: INTERNAL PUBLIC SUBNET CIDR BLOCK 
+application: application
+user: ANSIBLE USER
+key_path: LOCAL KEY PATH
+image: IMAGE
+root_volume: SIZE IN GB
+#data_volume: SIZE IN GB (OPTIONAL)

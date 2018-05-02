@@ -1,0 +1,142 @@
+# (c) 2016 DataNexus Inc.  All Rights Reserved.
+#
+# Launch an Azure AMI
+# 
+---
+- name: APPLICATION OVERLAY | creating ssh security group
+  azure_rm_securitygroup:
+    resource_group: "{{ specified_resourcegroup.name }}"
+    name: "dnsg_{{ project }}_ssh_private_internal"
+    purge_rules: yes
+    rules:
+      - name: DenyAll
+        proto: '*'
+        source_address_prefix: '*'
+        source_port_range: '*'
+        destination_address_prefix: "{{ internal_private_subnet_result.properties.addressPrefix }}"
+        destination_port_range: '*'
+        access: Deny
+        priority: 200
+        direction: Inbound
+      - name: AllowSSH
+        proto: TCP
+        destination_port_range: 22
+        access: Allow
+        priority: 100
+        direction: Inbound
+        source_address_prefix: "{{ internal_private_subnet_result.properties.addressPrefix }}"
+  register: sg_ssh_private
+
+- name: APPLICATION OVERLAY | creating closed security group
+  azure_rm_securitygroup:
+    resource_group: "{{ specified_resourcegroup.name }}"
+    name: "dnsg_{{ project }}_{{ application }}_public_internal"
+    purge_rules: yes
+    rules:
+      - name: DenyAll
+        proto: '*'
+        source_address_prefix: '*'
+        source_port_range: '*'
+        destination_address_prefix: "{{ internal_public_subnet_result.properties.addressPrefix }}"
+        destination_port_range: '*'
+        access: Deny
+        priority: 200
+        direction: Inbound
+  register: sg_closed
+
+- name: APPLICATION OVERLAY | setting key path to {{ key_path }}
+  set_fact: key_path="{{ ansible_env.PWD }}"
+  when: key_path is not defined
+
+- name: APPLICATION OVERLAY | checking {{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem
+  stat: path="{{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem"
+  register: existing_key
+
+# create new SSH key - azure supports 2048bit+ RSA 
+- block:    
+  - name: APPLICATION OVERLAY | creating {{ cloud }}-{{ region }}-{{ project }}-{{ application }}
+    command: "/usr/bin/ssh-keygen -b 2048 -t rsa -f {{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem -N ''"
+    register: new_azure_keypair
+
+  - name: setting read-only permissions on key {{ cloud }}-{{ region }}-{{ project }}-{{ application }}
+    file:
+      path: "{{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem.pub"
+      mode: 0400
+    when:
+      - new_azure_keypair.changed
+  when:
+    - not existing_key.stat.exists
+  
+- block:
+  - name: APPLICATION OVERLAY | creating {{ application }} virtual {{ project }}_{{ application }}_internal NIC
+    azure_rm_networkinterface:
+      resource_group: "{{ specified_resourcegroup.name }}"
+      name: "{{ project }}_{{ application }}_internal"    
+      virtual_network: "{{ virtualnetwork_by_name.ansible_facts.azure_virtualnetworks.0.name }}"
+      subnet_name: "{{ internal_private_subnet_result.name }}"
+      security_group: "dnsg_{{ project }}_ssh_private_internal"
+      ip_configurations:
+        - name: ipconfig1
+          primary: yes
+      tags:
+        Application: "{{ application }}"  
+        Role: "{{ role | default ('none') }}"
+        Tenant: "{{ tenant }}"
+        Project: "{{ project }}"
+        Cloud: "{{ cloud }}"
+        Domain: "{{ domain }}"
+        Cluster: "{{ cluster | default ('a') }}"
+        Dataflow: "{{ dataflow | default ('none') }}"
+
+  - name: APPLICATION OVERLAY | creating {{ application }} virtual {{ project }}_{{ application }}_external NIC
+    azure_rm_networkinterface:
+      resource_group: "{{ specified_resourcegroup.name }}"
+      name: "{{ project }}_{{ application }}_external"
+      virtual_network: "{{ virtualnetwork_by_name.ansible_facts.azure_virtualnetworks.0.name }}"
+      subnet_name: '{{ internal_public_subnet_result.name }}'
+      security_group: "dnsg_{{ project }}_{{ application }}_public_internal"
+      ip_configurations:
+        - name: ipconfig1
+          primary: yes
+      tags:
+        Application: "{{ application }}"  
+        Role: "{{ role | default ('none') }}"
+        Tenant: "{{ tenant }}"
+        Project: "{{ project }}"
+        Cloud: "{{ cloud }}"
+        Domain: "{{ domain }}"
+        Cluster: "{{ cluster | default ('a') }}"
+        Dataflow: "{{ dataflow | default ('none') }}"
+  
+  # this is not necessarily idempotent because we're shelling out
+  - name: APPLICATION OVERLAY | creating {{ application }} VM in {{ specified_resourcegroup.name }}
+    command: "az vm create --resource-group {{ specified_resourcegroup.name }} --name {{ project }}-{{ application }} --location {{ region }} --nics {{ project }}_{{ application }}_internal {{ project }}_{{ application }}_external --size {{ image | default('Standard_D8_v3') }} --os-disk-size-gb {{ root_volume }} --image Centos --admin-username {{ user }} --authentication-type ssh --ssh-key-value {{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem.pub --tags Name={{ project }}_{{ application }} Tenant={{ tenant }} Project={{ project }} Cloud={{ cloud }} Domain={{ domain }} Application={{ application }} Cluster={{ cluster | default ('a') }} Role={{ role | default ('none') }} Dataflow={{ dataflow | default ('none') }}"
+
+  - name: APPLICATION OVERLAY | creating {{ application }} data disk in {{ specified_resourcegroup.name }}
+    azure_rm_managed_disk:
+      name: "{{ project }}-{{ application }}-data"
+      resource_group: "{{ specified_resourcegroup.name }}"
+      disk_size_gb: "{{ data_volume }}"
+      managed_by: "{{ project }}-{{ application }}"
+    when: data_volume is defined
+        
+# multiple NICS fails using ansible
+# - name: APPLICATION OVERLAY | creating {{ application }} VM in {{ specified_resourcegroup.name }}
+#   azure_rm_virtualmachine:
+#     resource_group: "{{ specified_resourcegroup.name }}"
+#     name: "{{ project }}-{{ application }}"
+#     # storage_account: '{{ vmname }}'
+#    #  storage_container: '{{ vmname }}'
+#    #  storage_blob: '{{ vmname }}.vhd'
+#     network_interface_names: [  "{{ project }}_{{ application }}_internal", "{{ project }}_{{ application }}_external" ]
+#     vm_size: "{{ image }}"
+#     admin_username: "{{ user }}"
+#     ssh_password_enabled: False
+#     ssh_public_keys:
+#       - path: "/home/{{ user }}/.ssh/authorized_keys"
+#         key_data: "{{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem.pub"
+#     image:
+#       offer: CentOS
+#       publisher: OpenLogic
+#       sku: '7.4'
+#       version: latest
