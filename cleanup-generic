@@ -134,6 +134,6 @@
         with_items:
           - "{{ project }}_{{ application }}_internal"
           - "{{ project }}_{{ application }}_external"
-          - "dnsg_{{ project }}_{{ application }}_private_internal"
+          - "dnsg_{{ project }}_ssh_private_internal"
           - "dnsg_{{ project }}_{{ application }}_public_internal"
       when: cloud == 'azure'
