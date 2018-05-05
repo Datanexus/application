@@ -10,7 +10,7 @@ if [ "$1" = "-h" ] ; then
     exit 0
 fi
 
-if [ "$1" = "aws" ] || [ "$1" = "osp" ]; then
+if [ $1 = "aws" ] || [ $1 = "osp" ]; then
   export configuration="$1-configuration.yml"
 else
   export configuration="$1"
