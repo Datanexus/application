@@ -6,7 +6,7 @@ cloud: osp
 tenant: TENANT
 project: PROJECT
 domain: DOMAIN
-application: postgresql
+application: APPLICATION
 region: OSP_REGION
 cluster: CLUSTER
 replica: REPLICA

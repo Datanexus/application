@@ -6,7 +6,7 @@ cloud: aws
 tenant: AWS_PROFILE
 project: PROJECT
 domain: DOMAIN
-application: postgresql
+application: APPLICATION
 region: AWS_REGION
 cluster: CLUSTER
 replica: REPLICA

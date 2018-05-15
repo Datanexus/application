@@ -87,7 +87,7 @@
         Project: "{{ project }}"
         Cloud: "{{ cloud }}"
         Domain: "{{ domain }}"
-        Cluster: "{{ cluster | default ('a') }}"
+        Cluster: "{{ cluster | default ('none') }}"
         Dataflow: "{{ dataflow | default ('none') }}"
 
   - name: GENERIC OVERLAY | creating {{ application }} virtual {{ project }}_{{ application }}_external NIC
@@ -107,12 +107,12 @@
         Project: "{{ project }}"
         Cloud: "{{ cloud }}"
         Domain: "{{ domain }}"
-        Cluster: "{{ cluster | default ('a') }}"
+        Cluster: "{{ cluster | default ('none') }}"
         Dataflow: "{{ dataflow | default ('none') }}"
   
   # this is not necessarily idempotent because we're shelling out
   - name: GENERIC OVERLAY | creating {{ application }} VM in {{ specified_resourcegroup.name }}
-    command: "az vm create --resource-group {{ specified_resourcegroup.name }} --name {{ project }}-{{ application }} --location {{ region }} --nics {{ project }}_{{ application }}_internal {{ project }}_{{ application }}_external --size {{ type | default('Standard_D8_v3') }} --os-disk-size-gb {{ root_volume | default('30') }} --image {{ image | default('Centos') }} --admin-username {{ user }} --authentication-type ssh --ssh-key-value {{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem.pub --tags Name={{ project }}_{{ application }} Tenant={{ tenant }} Project={{ project }} Cloud={{ cloud }} Domain={{ domain }} Application={{ application }} Cluster={{ cluster | default ('a') }} Role={{ role | default ('none') }} Dataflow={{ dataflow | default ('none') }}"
+    command: "az vm create --resource-group {{ specified_resourcegroup.name }} --name {{ project }}-{{ application }} --location {{ region }} --nics {{ project }}_{{ application }}_internal {{ project }}_{{ application }}_external --size {{ type | default('Standard_A0') }} --os-disk-size-gb {{ root_volume | default('30') }} --image {{ image | default('Centos') }} --admin-username {{ user }} --authentication-type ssh --ssh-key-value {{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem.pub --tags Name={{ project }}_{{ application }} Tenant={{ tenant }} Project={{ project }} Cloud={{ cloud }} Domain={{ domain }} Application={{ application }} Cluster={{ cluster | default ('none') }} Role={{ role | default ('none') }} Dataflow={{ dataflow | default ('none') }}"
 
   - name: GENERIC OVERLAY | creating {{ application }} data disk in {{ specified_resourcegroup.name }}
     azure_rm_managed_disk:

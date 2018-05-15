@@ -3,10 +3,9 @@
 # discover Azure inventory
 ---
 - name: APPLICATION OVERLAY | setting key_path
-  set_fact: key_path="{{ ansible_env.PWD }}"
-  when: key_path is not defined
+  set_fact: key_path="{{ key_path | default(playbook_dir) }}"
 
-- name: APPLICATION OVERLAY | discovering {{ application }} master
+- name: APPLICATION OVERLAY | discovering {{ application }}
   azure_rm_networkinterface_facts:
     resource_group: "{{ specified_resourcegroup.name }}"
     name: "{{ project }}_{{ application }}_internal"
@@ -17,10 +16,10 @@
       - Project:{{ project }}
       - Cloud:{{ cloud }}
       - Domain:{{ domain }}
-      - Cluster:{{ cluster | default('a') }}
+      - Cluster:{{ cluster | default('none') }}
       - Dataflow:{{ dataflow | default('none') }}
   register: all_application
 
-- name: APPLICATION OVERLAY | adding all postgres masters to {{ application }} host group
+- name: APPLICATION OVERLAY | adding all discovered hosts to {{ application }} host group
   add_host: hostname="{{ item.properties.ipConfigurations.0.properties.privateIPAddress }}" groupname="{{ application }}" ansible_user="{{ user }}" ansible_ssh_private_key_file="{{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem"
   with_items: "{{ all_application.ansible_facts.azure_networkinterfaces }}"
