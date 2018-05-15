@@ -107,16 +107,15 @@
           name: azure
           tasks_from: discover-resourcegroup
         
-      - name: APPLICATION CLEANUP | removing {{ application }} VM in {{ specified_resourcegroup.name }}
+      - name: APPLICATION CLEANUP | removing {{ count }} {{ application }} VM in {{ specified_resourcegroup.name }}
         azure_rm_virtualmachine:
           resource_group: "{{ specified_resourcegroup.name }}"
-          name: "{{ item }}"
+          name: "{{ project }}-{{ application }}-{{item }}"
           state: absent
           remove_on_absent:
               - network_interfaces
               - virtual_storage
-        with_items:
-          - "{{ project }}-{{ application }}"
+        with_sequence: count={{ count }}
    
       - name: APPLICATION CLEANUP | removal if we haven't booted a machine
         azure_rm_networkinterface:
