@@ -4,18 +4,15 @@
 # main routine for provisioning generic application server
 ---
 - name: GENERIC OVERLAY | discovering {{ cloud }} networking
+  vars_files:
+    - "{{ configuration }}"
   tags:
-    - generic
+    - "{{ application }}"
     - vm
   hosts: localhost
   connection: local
-  vars_files:
-    - vars/generic.yml
   gather_facts: no
   tasks:
-    - include_vars: "{{ configuration }}"
-      when: configuration is defined
-      
     - include_role:
         name: aws
         tasks_from: discover-vpc
@@ -28,15 +25,14 @@
 
 - name: GENERIC OVERLAY | creating {{ cloud }} security groups
   tags:
-    - generic
+    - "{{ application }}"
     - vm
+  vars_files:
+    - "{{ configuration }}"
   hosts: localhost
   connection: local
   gather_facts: no
   tasks:
-    - include_vars: "{{ configuration }}"
-      when: configuration is defined
-      
     - include_role:
         name: aws
         tasks_from: create-securitygroup
@@ -45,14 +41,11 @@
 - name: GENERIC OVERLAY | launching VM
   tags: vm
   vars_files:
-    - vars/generic.yml
+    - "{{ configuration }}"
   hosts: localhost
   connection: local
   gather_facts: yes
   tasks:
-    - include_vars: "{{ configuration }}"
-      when: configuration is defined
-      
     - include_role:
         name: aws
         tasks_from: launch-vm
@@ -68,16 +61,14 @@
 
 - name: GENERIC OVERLAY | applying {{ cloud }} security groups
   tags:
-    - generic
+    - "{{ application }}"
+    - vm
+  vars_files:
+    - "{{ configuration }}"
   hosts: localhost
   connection: local
-  vars_files:
-    - vars/generic.yml
   gather_facts: no
   tasks:
-    - include_vars: "{{ configuration }}"
-      when: configuration is defined
-      
     - include_role:
         name: aws
         tasks_from: apply-securitygroup
@@ -87,17 +78,14 @@
       
 - name: GENERIC OVERLAY | gathering {{ cloud }} inventory
   tags:
-    - generic
+    - "{{ application }}"
     - vm
+  vars_files:
+    - "{{ configuration }}"  
   hosts: localhost
   connection: local
-  vars_files:
-    - vars/generic.yml
   gather_facts: no
   tasks:
-    - include_vars: "{{ configuration }}"
-      when: configuration is defined
-      
     - include_role:
         name: aws
         tasks_from: discover-vm
@@ -110,15 +98,14 @@
     
 # this is a separate step because ansible needs to gather facts on a fully configured base system
 - name: GENERIC OVERLAY | completing OS configuration
-  hosts: generic
-  tags: vm
+  hosts: "{{ application }}"
+  tags:
+    - "{{ application }}"
+    - vm
   vars_files:
-    - vars/generic.yml
+    - "{{ configuration }}"
   gather_facts: yes
   tasks:
-    - include_vars: "{{ configuration }}"
-      when: configuration is defined
-    
     - include_role:
         name: preflight
       vars:
@@ -130,16 +117,12 @@
     
 - name: GENERIC OVERLAY | installing base {{ application }} application overlay
   tags:
-    - vm
-    - generic
-  hosts: generic
+    - "{{ application }}"
   vars_files:
-    - vars/generic.yml
+    - "{{ configuration }}"
+  hosts: "{{ application }}"
   gather_facts: yes
   tasks:
-    - include_vars: "{{ configuration }}"
-      when: configuration is defined
-    
     - include_role:
         name: generic
  
