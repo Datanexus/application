@@ -9,6 +9,11 @@
     - "{{ configuration }}"
   gather_facts: true  
   tasks:
+    # the math is overkill, but it's useful if we want to get more complicated
+    - name: GENERIC CLEANUP OVERLAY | setting count to {{ count }}
+      set_fact:
+        count: "{{ count | default(1) | int * 1  }}"
+        
     - block:
       - name: APPLICATION CLEANUP | gathering {{ region }} running instances
         ec2_instance_facts:
