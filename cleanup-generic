@@ -121,29 +121,6 @@
               - network_interfaces
               - virtual_storage
         with_sequence: count={{ count }}
-   
-      - name: APPLICATION CLEANUP | removal if we haven't booted a machine
-        azure_rm_networkinterface:
-          resource_group: "{{ specified_resourcegroup.name }}"
-          name: "{{ item }}"
-          state: absent
-        with_items:
-          - "{{ project }}_{{ application }}_internal"
-          - "{{ project }}_{{ application }}_external"
-
-      - name: APPLICATION OVERLAY | deleting {{ count }} internal security groups
-        azure_rm_securitygroup:
-          resource_group: "{{ specified_resourcegroup.name }}"
-          name: "{{ project }}_{{ application }}_{{ item }}_internal"
-          state: absent
-        with_sequence: count={{ count }}
-      
-      - name: APPLICATION OVERLAY | deleting {{ count }} external security groups
-        azure_rm_securitygroup:
-          resource_group: "{{ specified_resourcegroup.name }}"
-          name: "{{ project }}_{{ application }}_{{ item }}_external"
-          state: absent
-        with_sequence: count={{ count }}
         
       - name: APPLICATION OVERLAY | deleting remaining security groups
         azure_rm_securitygroup:

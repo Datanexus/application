@@ -10,7 +10,7 @@
     purge_rules: yes
     rules:
       - name: DenyAll
-        proto: '*'
+        protocol: '*'
         source_address_prefix: '*'
         source_port_range: '*'
         destination_address_prefix: '*'
@@ -19,7 +19,7 @@
         priority: 200
         direction: Inbound
       - name: AllowSSH
-        proto: TCP
+        protocol: Tcp
         source_address_prefix: "{{ internal_private_subnet_result.properties.addressPrefix }}"
         source_port_range: '*'
         destination_address_prefix: "{{ internal_private_subnet_result.properties.addressPrefix }}"
@@ -36,7 +36,7 @@
     purge_rules: yes
     rules:
       - name: DenyAll
-        proto: '*'
+        protocol: '*'
         source_address_prefix: '*'
         source_port_range: '*'
         destination_address_prefix: '*'
@@ -116,38 +116,49 @@
         Cluster: "{{ cluster | default ('none') }}"
         Dataflow: "{{ dataflow | default ('none') }}"
     with_sequence: count={{ count }}
-  
-  # this is not necessarily idempotent because we're shelling out
-  - name: GENERIC OVERLAY | creating {{ count }} {{ application }} VM in {{ specified_resourcegroup.name }}
-    command: "az vm create --resource-group {{ specified_resourcegroup.name }} --name {{ project }}-{{ application }}-{{ item }} --location {{ region }} --nics {{ project }}_{{ application }}_{{ item }}_internal {{ project }}_{{ application }}_{{ item }}_external --size {{ type | default('Standard_A0') }} --os-disk-size-gb {{ root_volume | default('30') }} --image {{ image | default('Centos') }} --admin-username {{ user }} --authentication-type ssh --ssh-key-value {{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem.pub --tags Name={{ project }}_{{ application }} Tenant={{ tenant }} Project={{ project }} Cloud={{ cloud }} Domain={{ domain }} Application={{ application }} Cluster={{ cluster | default ('none') }} Role={{ role | default ('none') }} Dataflow={{ dataflow | default ('none') }}"
-    with_sequence: count={{ count }}
-    
-  - name: GENERIC OVERLAY | creating {{ count }} {{ application }} data disk in {{ specified_resourcegroup.name }}
-    azure_rm_managed_disk:
-      name: "{{ project }}-{{ application }}-{{ item }}-data"
-      resource_group: "{{ specified_resourcegroup.name }}"
-      disk_size_gb: "{{ data_volume }}"
-      managed_by: "{{ project }}-{{ application }}-{{ item }}"
-    when: data_volume is defined
-    with_sequence: count={{ count }}
-    
-# multiple NICS fails using ansible
-# - name: GENERIC OVERLAY | creating {{ application }} VM in {{ specified_resourcegroup.name }}
-#   azure_rm_virtualmachine:
+
+- set_fact:
+    key_contents: "{{ lookup('file', item) }}"
+  with_items:
+    - "{{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem.pub"
+
+- name: GENERIC OVERLAY | creating {{ count }} {{ application }} VM in {{ specified_resourcegroup.name }}
+  azure_rm_virtualmachine:
+    resource_group: "{{ specified_resourcegroup.name }}"
+    name: "{{ project }}-{{ application }}-{{ item }}"
+    location: "{{ region }}"
+    network_interface_names:
+      - "{{ project }}_{{ application }}_{{ item }}_internal"
+      - "{{ project }}_{{ application }}_{{ item }}_external"
+    vm_size: "{{ type }}"
+    managed_disk_type: "{{ root_disk_type | default('Standard_LRS') }}"
+    admin_username: "{{ user }}"
+    ssh_password_enabled: False
+    ssh_public_keys:
+      - path: "/home/{{ user }}/.ssh/authorized_keys"
+        key_data: "{{ key_contents }}"
+    image: "{{ image }}"
+    data_disks:
+      - lun: 0
+        disk_size_gb: "{{ data_volume | default(64) }}"
+        managed_disk_type: "{{ data_disk_type | default('Standard_LRS') }}"
+    tags:
+      Application: "{{ application }}"  
+      Role: "{{ role | default ('none') }}"
+      Tenant: "{{ tenant }}"
+      Project: "{{ project }}"
+      Cloud: "{{ cloud }}"
+      Domain: "{{ domain }}"
+      Cluster: "{{ cluster | default ('none') }}"
+      Dataflow: "{{ dataflow | default ('none') }}"
+  with_sequence: count={{ count }}
+  register: create_vm_log
+     
+# - name: GENERIC OVERLAY | creating {{ count }} {{ application }} data disk in {{ specified_resourcegroup.name }}
+#   azure_rm_managed_disk:
+#     name: "{{ project }}-{{ application }}-{{ item }}-data"
 #     resource_group: "{{ specified_resourcegroup.name }}"
-#     name: "{{ project }}-{{ application }}"
-#     # storage_account: '{{ vmname }}'
-#    #  storage_container: '{{ vmname }}'
-#    #  storage_blob: '{{ vmname }}.vhd'
-#     network_interface_names: [  "{{ project }}_{{ application }}_internal", "{{ project }}_{{ application }}_external" ]
-#     vm_size: "{{ image }}"
-#     admin_username: "{{ user }}"
-#     ssh_password_enabled: False
-#     ssh_public_keys:
-#       - path: "/home/{{ user }}/.ssh/authorized_keys"
-#         key_data: "{{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem.pub"
-#     image:
-#       offer: CentOS
-#       publisher: OpenLogic
-#       sku: '7.4'
-#       version: latest
+#     disk_size_gb: "{{ data_volume }}"
+#     managed_by: "{{ project }}-{{ application }}-{{ item }}"
+#   when: data_volume is defined
+#   with_sequence: count={{ count }}
