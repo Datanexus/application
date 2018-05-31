@@ -86,7 +86,6 @@ Replace IMAGE with the  ID in the region you wish to deploy `Standard_A0`, `Stan
     image: IMAGE
 Replace SIZE with the size of the root or data volume in GB, e.g, `20` for 20gig or `2000` for 2TB. `11` is a reasonable value for the root volume.
 
-    root_volume: SIZE
     data_volume: SIZE
 Replace CIDR_BLOCK and SUBNET with the values in the VPC, e.g., 172.31.0.0/16, 172.31.1.0/24, 172.31.2.0/24. The internal subnet is private and non-routable, the external subnet will outbound routing.
     
@@ -97,7 +96,6 @@ Replace CIDR_BLOCK and SUBNET with the values in the VPC, e.g., 172.31.0.0/16, 1
  
     http_proxy: http://USER:PASSWORD@DOMAIN:PORT
     
-        
 ### osp
 Certain _key:value_ pairs can be configured per project. Others should remain fixed for all projects.
 
