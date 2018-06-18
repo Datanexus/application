@@ -1,7 +1,6 @@
 # (c) 2016 DataNexus Inc.  All Rights Reserved.
 #
 # Launch an Azure AMI
-# 
 ---
 - name: GENERIC OVERLAY | creating ssh security group
   azure_rm_securitygroup:
@@ -73,54 +72,53 @@
 - name: GENERIC OVERLAY | setting count to {{ count }}
   set_fact:
     count: "{{ count | default(1) | int * 1  }}"
-     
-- block:
-  - name: GENERIC OVERLAY | creating {{ count }} {{ application }} virtual {{ project }}_{{ application }}_internal NIC
-    azure_rm_networkinterface:
-      resource_group: "{{ specified_resourcegroup.name }}"
-      name: "{{ project }}_{{ application }}_{{ item }}_internal"    
-      virtual_network: "{{ virtualnetwork_by_name.ansible_facts.azure_virtualnetworks.0.name }}"
-      subnet_name: "{{ internal_private_subnet_result.name }}"
-      security_group_name: "dnsg_{{ project }}_ssh_private_internal"
-      ip_configurations:
-        - name: ipconfig1
-          primary: yes
-      tags:
-        Application: "{{ application }}"  
-        Role: "{{ role | default ('none') }}"
-        Tenant: "{{ tenant }}"
-        Project: "{{ project }}"
-        Cloud: "{{ cloud }}"
-        Domain: "{{ domain }}"
-        Cluster: "{{ cluster | default ('none') }}"
-        Dataflow: "{{ dataflow | default ('none') }}"
-    with_sequence: count={{ count }}
-    
-  - name: GENERIC OVERLAY | creating {{ count }} {{ application }} virtual {{ project }}_{{ application }}_external NIC
-    azure_rm_networkinterface:
-      resource_group: "{{ specified_resourcegroup.name }}"
-      name: "{{ project }}_{{ application }}_{{ item }}_external"
-      virtual_network: "{{ virtualnetwork_by_name.ansible_facts.azure_virtualnetworks.0.name }}"
-      subnet_name: '{{ internal_public_subnet_result.name }}'
-      security_group_name: "dnsg_{{ project }}_{{ application }}_public_internal"
-      ip_configurations:
-        - name: ipconfig1
-          primary: yes
-      tags:
-        Application: "{{ application }}"  
-        Role: "{{ role | default ('none') }}"
-        Tenant: "{{ tenant }}"
-        Project: "{{ project }}"
-        Cloud: "{{ cloud }}"
-        Domain: "{{ domain }}"
-        Cluster: "{{ cluster | default ('none') }}"
-        Dataflow: "{{ dataflow | default ('none') }}"
-    with_sequence: count={{ count }}
+       
+- name: GENERIC OVERLAY | creating {{ count }} {{ application }} virtual {{ project }}_{{ application }}_internal NIC
+  azure_rm_networkinterface:
+    resource_group: "{{ specified_resourcegroup.name }}"
+    name: "{{ project }}_{{ application }}_{{ item }}_internal"    
+    virtual_network: "{{ virtualnetwork_by_name.ansible_facts.azure_virtualnetworks.0.name }}"
+    subnet_name: "{{ internal_private_subnet_result.name }}"
+    security_group_name: "dnsg_{{ project }}_ssh_private_internal"
+    ip_configurations:
+      - name: ipconfig1
+        primary: yes
+    tags:
+      Application: "{{ application }}"  
+      Role: "{{ role | default ('none') }}"
+      Tenant: "{{ tenant }}"
+      Project: "{{ project }}"
+      Cloud: "{{ cloud }}"
+      Domain: "{{ domain }}"
+      Cluster: "{{ cluster | default ('none') }}"
+      Dataflow: "{{ dataflow | default ('none') }}"
+  with_sequence: count={{ count }}
+  
+- name: GENERIC OVERLAY | creating {{ count }} {{ application }} virtual {{ project }}_{{ application }}_external NIC
+  azure_rm_networkinterface:
+    resource_group: "{{ specified_resourcegroup.name }}"
+    name: "{{ project }}_{{ application }}_{{ item }}_external"
+    virtual_network: "{{ virtualnetwork_by_name.ansible_facts.azure_virtualnetworks.0.name }}"
+    subnet_name: '{{ internal_public_subnet_result.name }}'
+    security_group_name: "dnsg_{{ project }}_{{ application }}_public_internal"
+    ip_configurations:
+      - name: ipconfig1
+        primary: yes
+    tags:
+      Application: "{{ application }}"  
+      Role: "{{ role | default ('none') }}"
+      Tenant: "{{ tenant }}"
+      Project: "{{ project }}"
+      Cloud: "{{ cloud }}"
+      Domain: "{{ domain }}"
+      Cluster: "{{ cluster | default ('none') }}"
+      Dataflow: "{{ dataflow | default ('none') }}"
+  with_sequence: count={{ count }}
 
 - set_fact:
     key_contents: "{{ lookup('file', item) }}"
   with_items:
-    - "{{ key_path }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem.pub"
+    - "{{ key_path | default(playbook_dir) }}/{{ cloud }}-{{ region }}-{{ project }}-{{ application }}-{{ domain }}-private-key.pem.pub"
 
 - name: GENERIC OVERLAY | creating {{ count }} {{ application }} VM in {{ specified_resourcegroup.name }}
   azure_rm_virtualmachine:
@@ -153,12 +151,3 @@
       Dataflow: "{{ dataflow | default ('none') }}"
   with_sequence: count={{ count }}
   register: create_vm_log
-     
-# - name: GENERIC OVERLAY | creating {{ count }} {{ application }} data disk in {{ specified_resourcegroup.name }}
-#   azure_rm_managed_disk:
-#     name: "{{ project }}-{{ application }}-{{ item }}-data"
-#     resource_group: "{{ specified_resourcegroup.name }}"
-#     disk_size_gb: "{{ data_volume }}"
-#     managed_by: "{{ project }}-{{ application }}-{{ item }}"
-#   when: data_volume is defined
-#   with_sequence: count={{ count }}
